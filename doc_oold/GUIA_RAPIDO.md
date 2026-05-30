@@ -1,170 +1,189 @@
 # 🚀 GUIA RÁPIDO - TICKET DISPENSER
 
-## ⚡ Projetos Disponíveis Neste Workspace
+## ⚡ Iniciar em 5 Minutos (Com Docker)
 
-Neste workspace existem dois projetos reais:
-
-- `dispenser-remote-api-main`: **Laravel Cloud API**.
-- `dispenser-backoffice-main/dispenser-backoffice-main`: **Next.js Backoffice** com API mock.
-
-> Observação: não há atualmente um projeto `dispenser-local-api-main` neste workspace.
-
----
-
-## ⚡ Iniciar em 5 Minutos
+### Local API
+```bash
+cd dispenser-local-api-main
+docker-compose up -d
+# Acesso: http://localhost:8080
+```
 
 ### Cloud API
 ```bash
 cd dispenser-remote-api-main
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
-php artisan serve --port=8084
+docker-compose up -d
+# Acesso: http://localhost:8084
+# RabbitMQ UI: http://localhost:15672 (admin/admin123)
 ```
-
-A API ficará disponível em `http://localhost:8084`.
-
-### Backoffice
-```bash
-cd dispenser-backoffice-main/dispenser-backoffice-main
-npm install
-npm run dev
-```
-
-O painel será aberto em `http://localhost:3000`.
 
 ---
 
 ## 📋 Checklist de Configuração
 
-### 1. Verificar projetos existentes
-- [ ] `dispenser-remote-api-main` existe
-- [ ] `dispenser-backoffice-main/dispenser-backoffice-main` existe
-- [ ] `dispenser-local-api-main` não existe neste workspace
+### 1. Clonar/Preparar Projeto
+- [ ] Pasta `dispenser-local-api-main` existe
+- [ ] Pasta `dispenser-remote-api-main` existe
+- [ ] Ambas têm arquivo `.env`
 
-### 2. Instalar dependências
+### 2. Variáveis Críticas do `.env`
+
+#### Local API (OBRIGATÓRIO)
+```env
+AGENCY_ID=seu-uuid-aqui              # UUID da agência
+APP_ENV=local
+JWT_SECRET=gerado-pelo-artisan
+DB_DATABASE=database/readmodel.sqlite
+EVENTSTORE_DB_DATABASE=database/eventstore.sqlite
+```
+
+#### Cloud API
+```env
+APP_ENV=local
+DB_HOST=mysql
+DB_DATABASE=ticket_dispenser
+DB_USERNAME=dispenser_user
+RABBITMQ_HOST=rabbitmq
+```
+
+### 3. Instalar Dependências
 ```bash
+# Local API
+cd dispenser-local-api-main
+composer install
+npm install
+npm run dev
+
 # Cloud API
 cd dispenser-remote-api-main
 composer install
-
-# Backoffice
-cd dispenser-backoffice-main/dispenser-backoffice-main
 npm install
-```
-
-### 3. Configurar o Cloud API
-```bash
-cd dispenser-remote-api-main
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
-```
-
-### 4. Iniciar serviços
-```bash
-# Cloud API
-php artisan serve --port=8084
-
-# Backoffice
 npm run dev
+```
+
+### 4. Gerar Chaves
+```bash
+# Local API
+php artisan key:generate
+php artisan jwt:secret
+
+# Cloud API
+php artisan key:generate
+```
+
+### 5. Criar Bancos
+```bash
+# Ambas as APIs
+php artisan migrate
+# Opcional: php artisan db:seed
+```
+
+### 6. Iniciar
+```bash
+# Com Docker
+docker-compose up -d
+
+# Ou sem Docker
+php artisan serve --port=8080  # Local
+php artisan serve --port=8084  # Cloud (em outro terminal)
 ```
 
 ---
 
 ## 🔗 Endpoints Essenciais
 
-### Cloud API (Laravel)
+### Local API (JWT)
 | Método | URL | O Que Faz |
 |--------|-----|-----------|
-| GET | `/health` | Verifica a saúde do serviço |
-| POST | `/v1/auth/login` | Faz login e retorna token |
-| GET | `/v1/auth/me` | Retorna usuário autenticado |
-| GET | `/v1/agencies` | Lista agências |
-| GET | `/v1/dashboard/overview` | Retorna dados do dashboard |
-| GET | `/v1/reports/general-attendance` | Relatório de atendimento |
+| POST | `/auth/login` | Faz login, retorna token |
+| GET | `/tickets` | Lista senhas |
+| POST | `/tickets` | Cria nova senha |
+| POST | `/tickets/call-next` | Chama próxima senha |
+| PATCH | `/tickets/{id}/finish` | Finaliza atendimento |
+| GET | `/health` | Verifica se está online |
 
-### Backoffice Mock (Next.js)
+### Cloud API (Sanctum)
 | Método | URL | O Que Faz |
 |--------|-----|-----------|
-| POST | `/api/v1/auth/login` | Simula login |
-| GET | `/api/v1/auth/me` | Retorna usuário mock |
-| GET | `/api/v1/agencies` | Lista agências mock |
-| GET | `/api/v1/desks` | Lista desks mock |
-| GET | `/api/v1/dashboard/overview` | Retorna dados de painel mock |
+| POST | `/v1/auth/login` | Faz login |
+| GET | `/v1/agencies` | Lista agências |
+| GET | `/v1/dashboard/overview` | Dashboard |
+| GET | `/v1/reports/daily` | Relatórios do dia |
 
 ---
 
 ## 🔐 Autenticação
 
-### Cloud API (Sanctum)
+### Local API (JWT)
+
 ```bash
+# 1. Fazer login
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "password"}'
+
+# Resposta:
+# {"access_token": "eyJ0eXA...", "token_type": "Bearer", "expires_in": 3600}
+
+# 2. Usar em requisições
+curl -X GET http://localhost:8080/tickets \
+  -H "Authorization: Bearer eyJ0eXA..."
+```
+
+### Cloud API (Sanctum)
+
+```bash
+# Similar ao Local API
 curl -X POST http://localhost:8084/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@example.com", "password": "password"}'
 ```
 
-### Backoffice Mock
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@ticketcloud.com", "password": "password"}'
+---
+
+## 📡 RabbitMQ - O "Mensageiro"
+
+### O que faz?
+- Local API → Cloud API: "Nova senha criada!"
+- Cloud API → Local API: "Novo serviço disponível"
+
+### Acessar Management UI
 ```
+http://localhost:15672
+Usuário: admin
+Senha: admin123
+```
+
+### Verificar Fila de Eventos
+1. Acesse http://localhost:15672
+2. Vá em "Queues"
+3. Veja `cloud_events_processor` (eventos da Local para Cloud)
+4. Veja `local_sync.*` (configurações da Cloud para Local)
 
 ---
 
-## 📁 Estrutura rápida dos projetos
+## 📁 Onde Está Cada Coisa?
 
-### Cloud API
-- `routes/api.php` — rotas públicas e protegidas do backend central
-- `app/Http/Controllers/Api/` — controllers de recursos
-- `config/` — configuração de autenticação, sanctum e rabbitmq
-- `database/migrations/` — migrations do MySQL
-
-### Backoffice
-- `app/api/v1/` — API mock usada pelo frontend
-- `app/api/v1/_mock-db.ts` — dados em memória utilizados pelos endpoints
-- `package.json` — scripts de desenvolvimento e dependências
-- `app/` — código do frontend Next.js
+```
+Códigos dos controllers    → app/Http/Controllers/
+Lógica de negócio         → app/Services/
+Dados (modelos)           → app/Models/
+Eventos de domínio        → app/Domain/Events/ (Local API)
+Sincronização RabbitMQ    → app/Infrastructure/RabbitMQ/
+Rotas da API              → routes/api.php
+Configurações             → .env
+Banco de dados (estrutura)→ database/migrations/
+```
 
 ---
 
 ## 🔧 Comandos Úteis
 
-### Iniciar apenas o Cloud API
+### Logs em Tempo Real
 ```bash
-cd dispenser-remote-api-main
-php artisan serve --port=8084
-```
-
-### Iniciar apenas o Backoffice
-```bash
-cd dispenser-backoffice-main/dispenser-backoffice-main
-npm run dev
-```
-
-### Ver logs do Cloud API
-```bash
-cd dispenser-remote-api-main
+# Local API
+cd dispenser-local-api-main
 tail -f storage/logs/laravel.log
-```
-
-### Ver base de dados do Cloud API
-```bash
-# Após rodar as migrations
-ls database
-```
-
----
-
-## 📝 Nota final
-
-Este guia foi ajustado para o estado atual do workspace, com atenção especial para:
-
-- `dispenser-remote-api-main` como o único backend real presente
-- `dispenser-backoffice-main/dispenser-backoffice-main` como painel de desenvolvimento mock
-- ausência de `dispenser-local-api-main` na sua pasta atual
 
 # Cloud API
 cd dispenser-remote-api-main

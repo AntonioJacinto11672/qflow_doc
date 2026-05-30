@@ -4,8 +4,6 @@
 **Versão do Documento:** 1.0  
 **Status:** Documentação Operacional Completa
 
-> ⚠️ Nota: este documento original contém um guia amplo do sistema. Para o estado real do workspace atual, use também `DOCUMENTACAO_REVISADA.md`, que documenta os projetos realmente presentes (`dispenser-remote-api-main` e `dispenser-backoffice-main/dispenser-backoffice-main`).
-
 ---
 
 ## 📖 ÍNDICE
